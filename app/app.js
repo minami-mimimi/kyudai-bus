@@ -30,6 +30,27 @@ const POPULAR = [CAMPUS, '九大学研都市駅', '九大ビッグオレンジ',
 // 乗り換えにかかる時間（分）。電車→バスは駅の改札から北口のバス乗り場まで歩く分を見込む
 const XFER = { trainBus: 4, trainTrain: 2 };
 const HUB = '九大学研都市駅';
+// 九州大学の授業時間（分）。1限 8:40〜10:10 … 5限 16:40〜18:10
+const PERIODS = [[1, 520, 610], [2, 630, 720], [3, 780, 870], [4, 890, 980], [5, 1000, 1090]];
+const margin = () => store.get('margin', 10);   // バス停⇔教室の余裕（分）
+const toCampusTrip = () => state.to === CAMPUS || isCampus(state.to);
+const fromCampusTrip = () => isCampus(state.from) && !toCampusTrip();
+// その便がどの授業に関係するか：行きは「◯限の何分前に着く」、帰りは「◯限が終わって何分後に出る」
+function classInfo(j) {
+  if (toCampusTrip()) {
+    const p = PERIODS.find(([, st]) => st >= j.arr);
+    if (!p || p[1] - j.arr > 100) return null;
+    const before = p[1] - j.arr;
+    return { n: p[0], text: `${p[0]}限 ${before}分前`, long: `${p[0]}限（${fmt(p[1])}〜）の${before}分前に到着`, tight: before < margin() };
+  }
+  if (fromCampusTrip()) {
+    const p = [...PERIODS].reverse().find(([, , en]) => en <= j.dep);
+    if (!p || j.dep - p[2] > 70) return null;
+    const aft = j.dep - p[2];
+    return { n: p[0], text: `${p[0]}限後 +${aft}分`, long: `${p[0]}限（〜${fmt(p[2])}）が終わって${aft}分後に出発`, tight: aft < margin() };
+  }
+  return null;
+}
 
 const ICON_BUS = '<svg viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="13.5" rx="3"/><path d="M5 10.5h14M8.5 20.5l1-3.5M15.5 20.5l-1-3.5"/></svg>';
 const ICON_TRAIN = '<svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="14" rx="3.5"/><path d="M6 10h12M9 21l1.5-4M15 21l-1.5-4"/><circle cx="9.5" cy="13.5" r=".9"/><circle cx="14.5" cy="13.5" r=".9"/></svg>';
@@ -294,7 +315,9 @@ function renderHome() {
   $('dayPill').innerHTML = `${ICON_CAL}<b>${DAY_NAMES[q.day]}</b>ダイヤ`;
   $('whenBtn').innerHTML = q.live
     ? `${ICON_CLOCK}<b>今すぐ</b>出発`
+    : q.period ? `${ICON_CLOCK}<b>${q.period}限</b>${q.mode === 'arr' ? 'に間に合う' : 'の後'}`
     : `${ICON_CLOCK}<b>${fmt(q.min)}</b>${q.mode === 'dep' ? '出発' : '到着'}`;
+  renderPeriods(q);
   const todays = q.live ? journeys(q.day, state.from, state.to) : [];
   const nx = todays.find((j) => j.dep >= q.min) || null;
   const first = nx && nx.legs[0];
@@ -302,7 +325,7 @@ function renderHome() {
   const lastWord = first && first.train ? '終電' : '終バス';
   $('nextLine').innerHTML = nx
     ? `<div class="nx-l">${lastOne ? `<span class="lastchip">${lastWord}</span>` : `次の${first.train ? '電車' : 'バス'}`}</div><div class="nx-t">${fmt(nx.dep)}<small>発</small></div>
-       <div class="nx-r"><span class="lb">あと </span><b>${after(nx.dep - q.min)}</b><br>${nx.plat ? `<span class="platchip">${platLabel(nx.plat)}</span> ` : ''}<span class="lb">${esc(nx.legs.map(legName).join('→'))}・${esc(short(nx.at))} </span>${fmt(nx.arr)}着</div>`
+       <div class="nx-r"><span class="lb">あと </span><b>${after(nx.dep - q.min)}</b><br>${nx.plat ? `<span class="platchip">${platLabel(nx.plat)}</span> ` : ''}<span class="lb">${esc(nx.legs.map(legName).join('→'))}・${esc(short(nx.at))} </span>${fmt(nx.arr)}着${classBadge(nx, 'classchip', true)}</div>`
     : `<div class="nx-msg">${q.live ? '本日の運行は終了しました' : `${DAY_NAMES[q.day]} ${fmt(q.min)} ${q.mode === 'dep' ? '出発' : '到着'}で検索します`}</div>`;
 
   const busRoutes = Object.entries(ROUTES).filter(([, v]) => !v.train);
@@ -319,6 +342,27 @@ function renderHome() {
   for (const p of ['search', 'hist', 'favs']) $('p-' + p).hidden = p !== state.pane;
   if (state.pane === 'hist') renderPairList($('histList'), hist, '検索履歴はまだありません');
   if (state.pane === 'favs') renderPairList($('favList'), favs, '便の詳細画面の「お気に入り」で追加できます', true);
+}
+
+// 授業のバッジ
+function classBadge(j, cls, br) {
+  const c = classInfo(j);
+  return c ? `${br ? '<br>' : ''}<span class="${cls}${c.tight ? ' tight' : ''}">${c.text}</span>` : '';
+}
+// 授業ボタン：行きは「間に合う便」、帰りは「終わってから乗れる便」を検索
+function renderPeriods(q) {
+  const back = fromCampusTrip();
+  $('periodLbl').textContent = back ? '授業が終わってから帰る' : '授業に間に合う便';
+  $('periods').innerHTML = PERIODS.map(([n, st, en]) =>
+    `<button class="pchip${q.period === n ? ' on' : ''}" data-n="${n}"><b>${n}限</b><small>${back ? `〜${fmt(en)}` : `${fmt(st)}〜`}</small></button>`).join('');
+  $('periods').querySelectorAll('.pchip').forEach((b) => b.onclick = () => {
+    const [n, st, en] = PERIODS[+b.dataset.n - 1];
+    const day = query().day;
+    state.when = fromCampusTrip()
+      ? { mode: 'dep', day, min: en + margin(), period: n }
+      : { mode: 'arr', day, min: st - margin(), period: n };
+    search();
+  });
 }
 
 function renderPairList(ul, pairs, empty, isFav) {
@@ -417,7 +461,9 @@ function segVal(id, key) { return $(id).querySelector('button.on').dataset[key];
 function renderResults() {
   const q = query();
   $('resTitle').textContent = `${short(state.from)} → ${short(state.to)}`;
-  $('resSub').textContent = `${q.live ? dateLabel(q.now) + ' ' : DAY_NAMES[q.day] + 'ダイヤ '}${fmt(q.min)} ${q.mode === 'dep' ? '出発' : '到着'}`;
+  $('resSub').textContent = q.period
+    ? `${DAY_NAMES[q.day]}ダイヤ・${q.period}限${q.mode === 'arr' ? `に間に合う便（${fmt(q.min)}着まで）` : `の後の便（${fmt(q.min)}発から）`}`
+    : `${q.live ? dateLabel(q.now) + ' ' : DAY_NAMES[q.day] + 'ダイヤ '}${fmt(q.min)} ${q.mode === 'dep' ? '出発' : '到着'}`;
   document.querySelectorAll('#sortTabs button').forEach((b) => b.classList.toggle('on', b.dataset.s === state.sort));
 
   const list = journeys(q.day, state.from, state.to);
@@ -452,13 +498,14 @@ function renderResults() {
   const minArr = Math.min(...js.map((j) => j.arr));
   const minD = Math.min(...js.map((j) => j.arr - j.dep));
   const lastOfDay = list[list.length - 1];
+  const latestOk = q.mode === 'arr' ? js[js.length - 1] : null;  // 到着指定で、間に合う中で一番遅く出られる便
   if (state.sort === 'fast') js = [...js].sort((x, z) => x.arr - z.arr || x.dep - z.dep);
   if (state.sort === 'short') js = [...js].sort((x, z) => (x.arr - x.dep) - (z.arr - z.dep) || x.dep - z.dep);
 
   const line = q.min >= t0 && q.min <= t1 + 1
     ? `<i class="now" style="top:${y(q.min)}px"></i><span class="nowtk" style="top:${y(q.min)}px">${fmt(q.min)}</span>` : '';
   const cols = js.map((j, k) => {
-    const tags = (j === lastOfDay ? `<i class="tg t-last">${j.legs[0].train ? '終電' : '終バス'}</i>` : '') + (j.arr === minArr ? '<i class="tg t-fast">最速</i>' : '') + (j.arr - j.dep === minD ? '<i class="tg t-short">最短</i>' : '');
+    const tags = (j === latestOk ? '<i class="tg t-late">間に合う最終</i>' : '') + (j === lastOfDay ? `<i class="tg t-last">${j.legs[0].train ? '終電' : '終バス'}</i>` : '') + (j.arr === minArr ? '<i class="tg t-fast">最速</i>' : '') + (j.arr - j.dep === minD ? '<i class="tg t-short">最短</i>' : '');
     const pills = j.legs.map((l, li) => {
       const r = rinfo(l.r);
       const h = (l.arr - l.dep) * ppm;
@@ -477,6 +524,7 @@ function renderResults() {
         <div class="c-arr">${fmt(j.arr)}</div>
         ${fareTxt ? `<div class="c-fare">${fareTxt}</div>` : ''}
         ${q.live ? `<div class="c-wait">あと${after(Math.max(0, j.dep - q.nowMin))}</div>` : ''}
+        ${classBadge(j, 'c-class', false)}
         <div class="c-tags">${tags}</div>
       </div>
       <button class="col-hit" data-k="${k}" aria-label="${fmt(j.dep)}発の詳細"></button>
@@ -484,6 +532,8 @@ function renderResults() {
   }).join('');
   $('cols').innerHTML = `<div class="tl-inner" style="height:${H}px"><div class="grid">${line}</div>${cols}</div>`;
   $('cols').querySelectorAll('.col-hit').forEach((b) => b.onclick = () => openDetail(js[+b.dataset.k]));
+  // 到着指定のときは、間に合う最後の便（右端）が見えるように
+  $('cols').scrollLeft = q.mode === 'arr' ? $('cols').scrollWidth : 0;
 }
 
 /* ================= 経路詳細 ================= */
@@ -557,6 +607,7 @@ function renderDetail() {
     <div class="summary">
       <div class="big">所要<b>${j.arr - j.dep}</b>分　乗換<b>${j.legs.length - 1}</b>回${fareTxt}</div>
       <div class="sub">${esc(short(j.legs[0].from))} ${fmt(j.dep)}発 → ${esc(short(j.at))} ${fmt(j.arr)}着${j.hasTrain ? '<br>電車の運賃は含みません' : ''}</div>
+      ${(() => { const c = classInfo(j); return c ? `<div class="classline${c.tight ? ' tight' : ''}">${c.long}${c.tight ? '（余裕少なめ）' : ''}</div>` : ''; })()}
     </div>
     <div class="d-btns">
       <button id="dPrev"${idx <= 0 ? ' disabled style="opacity:.4"' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span class="lb">前の便</span></button>
@@ -728,6 +779,9 @@ async function main() {
   const applySimple = (on) => { document.body.classList.toggle('simple', on); $('simpleSw').checked = on; };
   applySimple(store.get('simple', false));
   $('simpleSw').onchange = (e) => { store.set('simple', e.target.checked); applySimple(e.target.checked); toast(e.target.checked ? 'シンプル表示にしました' : '通常の表示に戻しました'); };
+  const setMargin = (m) => { store.set('margin', m); $('marginSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('on', +b.dataset.m === m)); };
+  setMargin(margin());
+  $('marginSeg').onclick = (e) => { const b = e.target.closest('button'); if (b) { setMargin(+b.dataset.m); toast(`余裕を${b.dataset.m}分にしました`); } };
   $('clearHist').onclick = () => { hist = []; store.set('hist', []); toast('検索履歴を削除しました'); };
   document.querySelectorAll('.tabbar button').forEach((b) => b.onclick = () => {
     while (overlays.length) overlays.pop().hidden = true;

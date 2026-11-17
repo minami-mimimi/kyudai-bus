@@ -38,6 +38,10 @@
       <button class="chipbtn" id="whenBtn"></button>
       <button class="chipbtn" id="dayPill"></button>
     </div>
+    <div class="period-box">
+      <div class="period-lbl lb" id="periodLbl">授業に間に合う便</div>
+      <div class="periods" id="periods"></div>
+    </div>
     <button class="search-btn" id="goBtn"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>バスを検索</button>
     <div class="next-card" id="nextLine"></div>
     <div class="opts-title">表示する系統</div>
@@ -96,6 +100,12 @@
       <span><b>シンプル表示</b><small>慣れた人向け。説明の文字を減らして、時刻・色・位置だけで見せます</small></span>
       <input type="checkbox" id="simpleSw" role="switch"><i class="sw"></i>
     </label>
+    <h2>授業に合わせる</h2>
+    <div class="box">
+      <p>バス停と教室のあいだを歩く分の余裕（行きは授業開始の何分前に着くか、帰りは終わってから何分後に乗るか）</p>
+      <div class="seg2" id="marginSeg"><button data-m="5">5分</button><button data-m="10">10分</button><button data-m="15">15分</button><button data-m="20">20分</button></div>
+      <p class="hint">授業時間：1限 8:40〜10:10／2限 10:30〜12:00／3限 13:00〜14:30／4限 14:50〜16:20／5限 16:40〜18:10</p>
+    </div>
     <h2>このアプリについて</h2>
     <div class="box">
       <p>九州大学 伊都キャンパス周辺を走る昭和バス「九州大学線」の時刻表アプリです。</p>
