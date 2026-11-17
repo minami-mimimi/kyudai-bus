@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>九大バス時刻表</title>
 <meta name="description" content="九州大学 伊都キャンパスの昭和バス時刻表。次のバスまでの時間をすぐ確認。">
 <meta name="theme-color" content="#8a3fb0">
@@ -14,45 +14,35 @@
 </head>
 <body>
 
-<!-- ===== 経路検索（ホーム） ===== -->
+<!-- ===== 検索（ホーム）：上は見るだけ、操作は下（親指の届く範囲）に集める ===== -->
 <section class="screen" id="s-home">
   <header class="hero">
     <div class="hero-top"><h1>九大バス</h1><span class="hero-date" id="heroDate"></span></div>
-    <div class="seg-head">
-      <button data-p="search" class="on">検索</button>
-      <button data-p="hist">履歴</button>
-      <button data-p="favs">お気に入り</button>
-    </div>
   </header>
 
-  <div class="pane" id="p-search">
-    <div class="od-card">
-      <div class="od-rail" aria-hidden="true"><i class="dot"></i><i class="rail"></i><i class="dot fill"></i></div>
-      <div class="od-rows">
-        <button class="od-row" id="fromBtn"><span class="lbl">乗る</span><span class="nm" id="fromName"></span><small id="fromSub"></small></button>
-        <button class="od-row" id="toBtn"><span class="lbl">降りる</span><span class="nm" id="toName"></span><small id="toSub"></small></button>
-      </div>
-      <button class="round" id="swap" aria-label="乗る・降りるを入れ替え"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 4L4.5 7.5M8 4l3.5 3.5M16 20V5M16 20l-3.5-3.5M16 20l3.5-3.5"/></svg></button>
-    </div>
-    <div class="when-row">
-      <button class="chipbtn" id="whenBtn"></button>
-      <button class="chipbtn" id="dayPill"></button>
-    </div>
-    <div class="period-box">
-      <div class="period-lbl lb" id="periodLbl">授業に間に合う便</div>
-      <div class="periods" id="periods"></div>
-    </div>
-    <button class="search-btn" id="goBtn"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>バスを検索</button>
+  <div class="home-body">
     <div class="next-card" id="nextLine"></div>
-    <div class="opts-title">表示する系統</div>
-    <div class="opts" id="opts"></div>
-  </div>
 
-  <div class="pane" id="p-hist" hidden>
-    <ul class="list" id="histList"></ul>
-  </div>
-  <div class="pane" id="p-favs" hidden>
-    <ul class="list" id="favList"></ul>
+    <div class="thumb-zone">
+      <div class="quick" id="quick"></div>
+      <div class="od-card">
+        <div class="od-rail" aria-hidden="true"><i class="dot"></i><i class="rail"></i><i class="dot fill"></i></div>
+        <div class="od-rows">
+          <button class="od-row" id="fromBtn"><span class="lbl">乗る</span><span class="nm" id="fromName"></span><small id="fromSub"></small></button>
+          <button class="od-row" id="toBtn"><span class="lbl">降りる</span><span class="nm" id="toName"></span><small id="toSub"></small></button>
+        </div>
+        <button class="round" id="swap" aria-label="乗る・降りるを入れ替え"><svg viewBox="0 0 24 24"><path d="M8 4v15M8 4L4.5 7.5M8 4l3.5 3.5M16 20V5M16 20l-3.5-3.5M16 20l3.5-3.5"/></svg></button>
+      </div>
+      <div class="period-box">
+        <div class="period-lbl lb" id="periodLbl">授業に間に合う便</div>
+        <div class="periods" id="periods"></div>
+      </div>
+      <div class="when-row">
+        <button class="chipbtn" id="dayPill"></button>
+        <button class="chipbtn" id="whenBtn"></button>
+      </div>
+      <button class="search-btn" id="goBtn"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>バスを検索</button>
+    </div>
   </div>
 </section>
 
@@ -65,36 +55,50 @@
   </header>
   <div class="cols" id="cols"></div>
   <div class="sort-tabs" id="sortTabs">
+    <button class="bk" data-back aria-label="戻る"><svg viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></svg></button>
     <button data-s="all" class="on">出発順</button><button data-s="fast">早く着く</button><button data-s="short">乗車が短い</button>
   </div>
 </section>
 
-<!-- ===== 経路詳細 ===== -->
+<!-- ===== 便の詳細 ===== -->
 <section class="screen" id="s-detail" hidden>
   <header class="nav-head">
     <button class="back" data-back aria-label="戻る"><svg viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></svg></button>
     <div class="nh-mid"><div class="nh-title big" id="detTitle"></div><div class="nh-sub" id="detSub"></div></div>
-    <button class="back" id="shareBtn" aria-label="共有"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
+    <span class="nh-pad"></span>
   </header>
   <div class="detail" id="detail"></div>
+  <div class="actbar" id="detActs">
+    <button class="bk" data-back aria-label="戻る"><svg viewBox="0 0 24 24"><path d="M20 12H5M11 5l-7 7 7 7"/></svg></button>
+    <button id="shareBtn" aria-label="共有"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg></button>
+    <button id="dFav" aria-label="お気に入り"><svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2 6.4 20.2l1.1-6.3L2.9 9.5l6.3-.9z"/></svg></button>
+    <button id="dPrev" aria-label="前の便"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span class="lb">前</span></button>
+    <button id="dNext" class="main" aria-label="次の便"><span class="lb">次の便</span><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
 </section>
 
-<!-- ===== 時刻表 ===== -->
+<!-- ===== 時刻表：区間と曜日の切り替えは下 ===== -->
 <section class="screen" id="s-table" hidden>
   <header class="plain-head"><h1>時刻表</h1></header>
-  <div class="tt-pick">
-    <button class="tt-stop" id="ttFrom"></button>
-    <span class="tt-arrow">→</span>
-    <button class="tt-stop" id="ttTo"></button>
-  </div>
-  <div class="daytabs" id="ttDays"><button data-d="0">平日</button><button data-d="1">土曜</button><button data-d="2">日曜・祝日</button></div>
   <div class="tt" id="ttMain"></div>
+  <div class="tt-ctrl">
+    <div class="tt-pick">
+      <button class="tt-stop" id="ttFrom"></button>
+      <span class="tt-arrow">→</span>
+      <button class="tt-stop" id="ttTo"></button>
+    </div>
+    <div class="daytabs" id="ttDays"><button data-d="0">平日</button><button data-d="1">土曜</button><button data-d="2">日曜・祝日</button></div>
+  </div>
 </section>
 
-<!-- ===== もっと見る ===== -->
+<!-- ===== その他 ===== -->
 <section class="screen" id="s-more" hidden>
   <header class="plain-head"><h1>その他</h1></header>
   <div class="more">
+    <h2>お気に入りの区間</h2>
+    <ul class="list" id="favList"></ul>
+    <h2>表示する系統</h2>
+    <div class="box"><div class="opts" id="opts"></div></div>
     <h2>表示</h2>
     <label class="box switch-row">
       <span><b>シンプル表示</b><small>慣れた人向け。説明の文字を減らして、時刻・色・位置だけで見せます</small></span>
@@ -125,25 +129,26 @@
   <button data-t="s-more"><span class="tb-ic"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span>その他</button>
 </nav>
 
-<!-- ===== 停留所検索（全画面） ===== -->
+<!-- ===== 停留所・駅の検索：入力欄は下（キーボードのすぐ上） ===== -->
 <div class="overlay" id="search" hidden>
+  <div class="search-head"><span id="searchTitle">乗る停留所・駅</span></div>
+  <div class="search-body" id="searchBody"></div>
   <div class="search-bar">
-    <label class="sfield"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><input id="q" type="search" placeholder="停留所名など" autocomplete="off"></label>
+    <label class="sfield"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><input id="q" type="search" placeholder="名前で探す" autocomplete="off" enterkeyhint="search"></label>
     <button class="x" id="searchClose" aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
   </div>
-  <div class="search-body" id="searchBody"></div>
 </div>
 
 <!-- ===== 日時指定シート ===== -->
 <div class="sheet-wrap" id="whenSheet" hidden>
   <div class="sheet small">
     <div class="grab"></div>
-    <div class="sh-head"><div class="sh-mid"><div class="sh-title">日時を指定</div></div><button class="x" data-close aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
+    <div class="sh-head"><div class="sh-mid"><div class="sh-title">日時を指定</div></div></div>
     <div class="when-body">
-      <div class="seg2" id="wMode"><button data-m="dep" class="on">出発</button><button data-m="arr">到着</button></div>
-      <div class="seg2" id="wDay"><button data-d="0">平日</button><button data-d="1">土曜</button><button data-d="2">日祝</button></div>
       <input type="time" id="wTime" class="wtime">
-      <div class="when-btns"><button class="btn sub" id="wNow">現在時刻</button><button class="btn" id="wOk">決定</button></div>
+      <div class="seg2" id="wDay"><button data-d="0">平日</button><button data-d="1">土曜</button><button data-d="2">日祝</button></div>
+      <div class="seg2" id="wMode"><button data-m="dep" class="on">出発</button><button data-m="arr">到着</button></div>
+      <div class="when-btns"><button class="btn sub" id="wNow">今すぐ</button><button class="btn" id="wOk">決定</button></div>
     </div>
   </div>
 </div>
@@ -154,9 +159,9 @@
     <div class="grab"></div>
     <div class="sh-head">
       <div class="sh-mid"><span class="sh-tag" id="shTag"></span><div class="sh-title" id="shTitle"></div><div class="sh-sub" id="shSub"></div></div>
-      <button class="x" data-close aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
     </div>
     <div class="tt" id="shTable"></div>
+    <button class="fab-close" data-close aria-label="閉じる"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
   </div>
 </div>
 

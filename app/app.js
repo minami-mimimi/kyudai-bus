@@ -328,6 +328,24 @@ function renderHome() {
        <div class="nx-r"><span class="lb">あと </span><b>${after(nx.dep - q.min)}</b><br>${nx.plat ? `<span class="platchip">${platLabel(nx.plat)}</span> ` : ''}<span class="lb">${esc(nx.legs.map(legName).join('→'))}・${esc(short(nx.at))} </span>${fmt(nx.arr)}着${classBadge(nx, 'classchip', true)}</div>`
     : `<div class="nx-msg">${q.live ? '本日の運行は終了しました' : `${DAY_NAMES[q.day]} ${fmt(q.min)} ${q.mode === 'dep' ? '出発' : '到着'}で検索します`}</div>`;
 
+  renderQuick();
+}
+
+// よく使う区間（お気に入り→最近の検索）。タップでそのまま検索
+function renderQuick() {
+  const items = [...favs.map((x) => [...x, true]), ...hist.filter(([a, b]) => !favs.some(([c, d]) => c === a && d === b)).map((x) => [...x, false])].slice(0, 8);
+  $('quick').innerHTML = items.map(([f, t, fav], i) =>
+    `<button class="qchip${fav ? ' fav' : ''}" data-i="${i}">${fav ? '★ ' : ''}${esc(shortest(f))}<span>→</span>${esc(shortest(t))}</button>`).join('');
+  $('quick').hidden = !items.length;
+  $('quick').querySelectorAll('.qchip').forEach((b) => b.onclick = () => {
+    const [f, t] = items[+b.dataset.i]; state.from = f; state.to = t; fixRoute(); search();
+  });
+}
+const shortest = (n) => n === CAMPUS ? '伊都' : short(n).replace(/^九大(?!学研)/, '').replace(/駅$/, '');
+
+// その他：お気に入りの管理と系統のオン・オフ
+function renderMore() {
+  renderPairList($('favList'), favs, '便の詳細画面の ☆ で追加できます', true);
   const busRoutes = Object.entries(ROUTES).filter(([, v]) => !v.train);
   $('opts').innerHTML = busRoutes.map(([r, v]) =>
     `<button class="opt${state.off.has(r) ? ' off' : ''}" data-r="${r}" style="--c:var(--r-${v.key})"><span class="ic">${v.mark}</span>${v.short}<i>${state.off.has(r) ? 'オフ' : 'オン'}</i></button>`).join('');
@@ -335,13 +353,8 @@ function renderHome() {
     const r = b.dataset.r;
     if (state.off.has(r)) state.off.delete(r); else state.off.add(r);
     if (state.off.size === busRoutes.length) { state.off.delete(r); toast('すべてオフにはできません'); }
-    store.set('routesOff', [...state.off]); jCache.clear(); renderHome();
+    store.set('routesOff', [...state.off]); jCache.clear(); connCache.clear(); renderMore();
   });
-
-  document.querySelectorAll('.seg-head button').forEach((b) => b.classList.toggle('on', b.dataset.p === state.pane));
-  for (const p of ['search', 'hist', 'favs']) $('p-' + p).hidden = p !== state.pane;
-  if (state.pane === 'hist') renderPairList($('histList'), hist, '検索履歴はまだありません');
-  if (state.pane === 'favs') renderPairList($('favList'), favs, '便の詳細画面の「お気に入り」で追加できます', true);
 }
 
 // 授業のバッジ
@@ -377,7 +390,7 @@ function renderPairList(ul, pairs, empty, isFav) {
     const [f, t] = pairs[+b.dataset.i]; state.from = f; state.to = t; fixRoute(); search();
   });
   ul.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => {
-    favs.splice(+b.dataset.del, 1); store.set('favs', favs); renderHome(); toast('登録を解除しました');
+    favs.splice(+b.dataset.del, 1); store.set('favs', favs); render(); toast('登録を解除しました');
   });
 }
 
@@ -393,10 +406,10 @@ let searchTarget = 'from';
 function openSearch(target) {
   searchTarget = target;
   $('q').value = '';
-  $('q').placeholder = target === 'from' ? '乗る停留所・駅' : '降りる停留所・駅';
-  renderSearch();
+  $('searchTitle').textContent = target === 'from' ? '乗る停留所・駅を選ぶ' : '降りる停留所・駅を選ぶ';
   openOverlay($('search'));
-  setTimeout(() => $('q').focus(), 50);
+  renderSearch();
+  requestAnimationFrame(() => { $('searchBody').scrollTop = $('searchBody').scrollHeight; });
 }
 function candidates() {
   if (searchTarget === 'from') return DATA.stops.filter((s) => reachable(s).size);
@@ -417,18 +430,20 @@ function renderSearch() {
     html = `<div class="s-sec">「${esc(qv)}」の候補</div><ul class="list">${hits.map(row).join('') || '<li class="empty">見つかりませんでした</li>'}</ul>`;
   } else {
     const chips = [...new Set([...favStops, ...POPULAR])].filter((n) => cand.includes(n));
-    html += `<div class="s-sec">お気に入り／よく使う</div><div class="chips">${chips.map((n) => `<button data-pick="${esc(n)}">${esc(disp(n))}</button>`).join('')}</div>`;
     const h = stopHist.filter((n) => cand.includes(n));
-    if (h.length) html += `<div class="s-sec">入力履歴<button class="act" id="clrStopHist">削除</button></div><ul class="list">${h.map(row).join('')}</ul>`;
     const camp = cand.filter((n) => isCampus(n)).sort((x, y) => x.localeCompare(y, 'ja'));
     const order = DATA.trainOrder || [];
     const rail = cand.filter(stationOnly).sort((x, y) => order.indexOf(y) - order.indexOf(x));
     const others = cand.filter((n) => !isCampus(n) && n !== CAMPUS && !stationOnly(n)).sort((x, y) => x.localeCompare(y, 'ja'));
-    if (camp.length) html += `<div class="s-sec">伊都キャンパス内のバス停</div><ul class="list">${camp.map(row).join('')}</ul>`;
-    if (rail.length) html += `<div class="s-sec">電車の駅（筑肥線・空港線）</div><ul class="list">${rail.map(row).join('')}</ul>`;
+    // 下ほど親指に近いので、よく使うものほど下に置く
     if (others.length) html += `<div class="s-sec">その他のバス停</div><ul class="list">${others.map(row).join('')}</ul>`;
+    if (rail.length) html += `<div class="s-sec">電車の駅（筑肥線・空港線）</div><ul class="list">${rail.map(row).join('')}</ul>`;
+    if (camp.length) html += `<div class="s-sec">伊都キャンパス内のバス停</div><ul class="list">${camp.map(row).join('')}</ul>`;
+    if (h.length) html += `<div class="s-sec">入力履歴<button class="act" id="clrStopHist">削除</button></div><ul class="list">${h.map(row).join('')}</ul>`;
+    html += `<div class="s-sec">お気に入り／よく使う</div><div class="chips">${chips.map((n) => `<button data-pick="${esc(n)}">${esc(disp(n))}</button>`).join('')}</div>`;
   }
   $('searchBody').innerHTML = html;
+  $('searchBody').scrollTop = $('searchBody').scrollHeight;
   $('searchBody').querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => pickStop(b.dataset.pick));
   $('searchBody').querySelectorAll('[data-star]').forEach((b) => b.onclick = () => {
     const n = b.dataset.star;
@@ -609,11 +624,6 @@ function renderDetail() {
       <div class="sub">${esc(short(j.legs[0].from))} ${fmt(j.dep)}発 → ${esc(short(j.at))} ${fmt(j.arr)}着${j.hasTrain ? '<br>電車の運賃は含みません' : ''}</div>
       ${(() => { const c = classInfo(j); return c ? `<div class="classline${c.tight ? ' tight' : ''}">${c.long}${c.tight ? '（余裕少なめ）' : ''}</div>` : ''; })()}
     </div>
-    <div class="d-btns">
-      <button id="dPrev"${idx <= 0 ? ' disabled style="opacity:.4"' : ''}><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span class="lb">前の便</span></button>
-      <button id="dFav"><svg viewBox="0 0 24 24" style="${isFav ? 'fill:#f1b400;stroke:#f1b400' : ''}"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2 6.4 20.2l1.1-6.3L2.9 9.5l6.3-.9z"/></svg><span class="lb">${isFav ? 'お気に入り済み' : 'お気に入り'}</span></button>
-      <button id="dNext"${idx < 0 || idx >= state.results.length - 1 ? ' disabled style="opacity:.4"' : ''}><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg><span class="lb">次の便</span></button>
-    </div>
     <p class="d-note">時刻は昭和バス・JR九州の公表ダイヤです。遅れることがあります${j.hasTrain ? '。乗り換えは余裕をもってどうぞ' : ''}。</p>`;
   $('chgTime').onclick = () => openTTSheet(state.from, state.to, q.day);
   $('detail').querySelectorAll('[data-mid]').forEach((b) => b.onclick = () => {
@@ -621,6 +631,9 @@ function renderDetail() {
     if (state.midOpen.has(li)) state.midOpen.delete(li); else state.midOpen.add(li);
     renderDetail();
   });
+  $('dFav').classList.toggle('on', isFav);
+  $('dPrev').disabled = idx <= 0;
+  $('dNext').disabled = idx < 0 || idx >= state.results.length - 1;
   $('dFav').onclick = () => {
     const i = favs.findIndex(([a, b]) => a === state.from && b === state.to);
     if (i >= 0) { favs.splice(i, 1); toast('登録を解除しました'); } else { favs.unshift([state.from, state.to]); toast('お気に入りに追加しました'); }
@@ -697,6 +710,7 @@ function render() {
   if (id === 's-results') renderResults();
   if (id === 's-detail') renderDetail();
   if (id === 's-table') renderTable();
+  if (id === 's-more') renderMore();
 }
 function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.hidden = false;
