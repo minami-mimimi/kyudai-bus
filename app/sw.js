@@ -1,6 +1,6 @@
 // オフラインでも時刻表を見られるようにするサービスワーカー
-const CACHE = 'kyudai-bus-v8';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'data/timetable.json',
+const CACHE = 'kyudai-bus-v10';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'data/timetable.json', 'data/trains.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-192.png', 'icons/maskable-512.png'];
 
 self.addEventListener('install', (e) => {

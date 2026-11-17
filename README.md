@@ -15,6 +15,9 @@
 - 「伊都キャンパス」を行き先にすると、キャンパス内で最初に着く停留所までの全便を表示
 - **のりば表示**：九大学研都市駅の1〜4番のりばなど、乗る・降りるのりばを結果・詳細・時刻表に表示
 - **運賃表示**（例：九大学研都市駅→伊都 330円）
+- **電車からの乗り継ぎ**：姪浜駅・天神駅・博多駅など（JR筑肥線・地下鉄空港線の15駅）から、九大学研都市駅でバスに乗り換える経路も検索（駅→バス乗り場は徒歩4分で計算）。逆向きも可
+- **終バス・終電の表示**：次の便がその日の最後なら「終バス」「終電」
+- **シンプル表示**（その他 → 表示）：慣れた人向けに説明の文字を減らす
 - 系統（学園通／快速／横浜西／周船寺／糸島）ごとのオン・オフ切り替え
 - 平日 / 土曜 / 日祝 を祝日込みで自動判定、オフライン対応、ダークモード対応
 
@@ -31,16 +34,19 @@
 ```
 app/                 公開するファイル一式（静的サイト）
   index.html, app.js, style.css, sw.js, manifest.webmanifest
-  data/timetable.json  時刻表・のりば・運賃データ
+  data/timetable.json  バスの時刻表・のりば・運賃
+  data/trains.json     電車の時刻表（九大学研都市に停まる筑肥線・空港線直通）
   icons/
 scripts/
-  build_gtfs.py      昭和バスの公式GTFSから app/data/timetable.json を生成（通常はこちら）
+  build_gtfs.py      昭和バスの公式GTFSから app/data/timetable.json を生成
+  build_trains.py    JR九州の駅別時刻表から app/data/trains.json（筑肥線・空港線直通）を生成
   make_icons.py      アイコン生成
 ```
 
 ## 時刻表の更新（ダイヤ改正時）
 ```bash
 python scripts/build_gtfs.py
+python scripts/build_trains.py 20270318 20270320 20270321   # 平日・土曜・日祝の代表日（JRのダイヤ改正時）
 ```
 データ元: 佐賀県バスオープンデータ（昭和自動車株式会社 GTFS-JP）http://opendata.sagabus.info/ ・ CC BY 4.0。
 年末年始などの特別ダイヤ日もデータから反映します。非公式アプリです。

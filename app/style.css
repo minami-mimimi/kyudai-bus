@@ -17,6 +17,7 @@
   --r-yoko: #2f6fd6;
   --r-sus: #e2791d;
   --r-ito: #0e9aa7;
+  --r-jr: #4a5260;
   --fast: #8a3fb0;
   --short: #e09a00;
   --shadow: 0 2px 10px rgba(80, 30, 110, .08);
@@ -40,6 +41,7 @@
     --r-yoko: #74a6ff;
     --r-sus: #ffa057;
     --r-ito: #47c8d3;
+    --r-jr: #b4bdca;
     --fast: #c08ae6;
     --short: #ffc04d;
     --shadow: none;
@@ -403,3 +405,50 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .rt-row.mid .rt-body { padding-bottom: 6px; }
 .rt-row.mid .rt-name { font-size: 15px; font-weight: 700; }
 .route .mid-toggle { margin-top: 12px; }
+
+/* ---------- 電車と乗り換え ---------- */
+.pill.rail .node { width: 22px; height: 22px; border-radius: 6px; }
+.pill.rail .node svg { width: 15px; height: 15px; stroke: #fff; stroke-width: 2.2; }
+@media (prefers-color-scheme: dark) { .pill.rail .node svg { stroke: #151218; } }
+.xgap { position: absolute; left: 50%; width: 0; border-left: 2px dotted var(--muted); z-index: 1; transform: translateX(-1px); }
+.ico.rail { background: color-mix(in srgb, var(--r-jr) 16%, transparent); color: var(--r-jr); }
+.rt-row.xfer .rt-time { font-size: 15px; line-height: 1.35; }
+.rt-row.xfer .rt-mk::before { background: repeating-linear-gradient(var(--muted) 0 4px, transparent 4px 8px); }
+.rt-mk .dot.x { border-color: var(--muted); background: var(--card); }
+.rt-walk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.rt-walk svg { width: 16px; height: 16px; flex: none; }
+.rt-line .tagsoft { padding: 1px 7px; }
+
+/* ---------- 終電・終バス ---------- */
+.lastchip { display: inline-block; background: var(--now); color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 900; }
+.t-last { background: var(--now); }
+
+/* ---------- 設定スイッチ ---------- */
+.switch-row { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.switch-row > span { flex: 1; font-size: 14px; }
+.switch-row small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+.switch-row input { position: absolute; opacity: 0; pointer-events: none; }
+.switch-row .sw { width: 46px; height: 28px; border-radius: 999px; background: var(--past); position: relative; flex: none; transition: background .2s; }
+.switch-row .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.switch-row input:checked + .sw { background: var(--accent); }
+.switch-row input:checked + .sw::after { transform: translateX(18px); }
+
+/* ---------- シンプル表示：説明の文字を隠し、時刻・色・位置で見せる ---------- */
+body.simple .lb,
+body.simple .od-row .lbl, body.simple .od-row small,
+body.simple .opts-title,
+body.simple .c-dur, body.simple .c-fare, body.simple .c-wait, body.simple .lname,
+body.simple .t-fast, body.simple .t-short,
+body.simple .rt-lbl, body.simple .rt-line, body.simple .rt-meta,
+body.simple .summary .sub, body.simple .d-note,
+body.simple .tt .legend,
+body.simple .list .row .nm small { display: none; }
+body.simple .od-row { padding: 9px 0; }
+body.simple .opts { margin-top: 14px; }
+body.simple .opt { padding: 4px; border-width: 0; background: none; }
+body.simple .opt .ic { width: 26px; height: 26px; font-size: 13px; }
+body.simple .next-card { min-height: 0; }
+body.simple .d-btns button { padding: 12px 4px; }
+body.simple .rt-row.leg2 .rt-body { padding: 6px 0 10px; }
+body.simple .rt-name { font-size: 20px; }
+body.simple .route .mid-toggle { margin-top: 6px; }
