@@ -1,0 +1,8 @@
+# 公開しないもの
+*.mp4
+*.mov
+.claude/
+__pycache__/
+*.zip
+# 旧方式（Navitimeの公開時刻表から取得）。現在は scripts/build_gtfs.py を使用
+scripts/scrape.py
