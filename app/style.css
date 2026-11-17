@@ -628,3 +628,80 @@ body.simple .pchip small { display: none; }
 .search-body { display: flex; flex-direction: column; }
 .search-body > :first-child { margin-top: auto; }
 .search-body > * { flex-shrink: 0; }
+
+/* ======================================================================
+   通学モード：開いた瞬間に今乗るべき便を出す
+   ====================================================================== */
+.next-card.dash { display: block; padding: 14px 14px 10px; cursor: default; }
+.dash-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.dirtag { font-size: 12px; font-weight: 900; color: #fff; background: var(--accent); border-radius: 6px; padding: 3px 9px; }
+.dirtag.back { background: var(--r-sus); }
+.dash-route { font-size: 14px; font-weight: 800; }
+.dash-hint { font-size: 13px; color: var(--muted); margin: 6px 4px 0; }
+.dash-hint b { color: var(--accent); font-size: 15px; }
+.dash-hint .late { color: var(--now); font-weight: 800; }
+.dash-none { font-size: 14px; color: var(--muted); padding: 16px 4px 8px; line-height: 1.7; }
+.dash-none b { color: var(--text); }
+.dash-main {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left;
+  margin-top: 10px; padding: 12px 12px; border-radius: 14px; background: var(--accent-soft);
+}
+.dm-l { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dm-t { font-size: 34px; font-weight: 900; line-height: 1; }
+.dm-t small { font-size: 13px; color: var(--muted); margin-left: 2px; font-weight: 700; }
+.dm-s { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.dm-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+.dm-w { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.dm-w b { font-size: 22px; color: var(--accent); margin-left: 2px; }
+.dash-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 12px 8px;
+  border-top: 1px solid var(--line); font-size: 14px;
+}
+.dash-row:first-of-type { border-top: none; }
+.dr-t { font-size: 18px; font-weight: 900; }
+.dr-a { color: var(--muted); }
+.dr-w { margin-left: auto; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.dash-row .classchip, .dash-main .classchip { margin-top: 0; }
+.classchip.late, .c-class.late { background: var(--now); color: #fff; }
+
+/* 行き／帰り（右手の親指でワンタップ） */
+.dirseg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dirseg button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 6px;
+  border-radius: 16px; background: var(--card); border: 1.5px solid var(--line);
+}
+.dirseg b { font-size: 18px; font-weight: 900; }
+.dirseg small { font-size: 11px; color: var(--muted); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dirseg button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.dirseg button.on small { color: var(--accent-ink); opacity: .85; }
+.customtoggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border-radius: 14px;
+  color: var(--accent); font-weight: 800; font-size: 14px; background: var(--accent-soft);
+}
+.customtoggle svg { width: 17px; height: 17px; stroke-width: 2.4; }
+.custom-box { display: flex; flex-direction: column; gap: 12px; }
+
+/* 提案（慣れてきたら） */
+.suggest { display: flex; gap: 8px; align-items: stretch; }
+.sg {
+  flex: 1; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1.5px dashed var(--accent);
+  color: var(--accent); font-weight: 800; font-size: 13px; background: var(--card);
+}
+.sg small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; margin-top: 2px; }
+.sg-x { flex: 0 0 40px; border-radius: 12px; background: var(--bg2); color: var(--muted); font-size: 18px; }
+
+/* その他：通学ルート・時間割 */
+.setbox { padding: 4px 14px; }
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.setrow span { font-size: 14px; font-weight: 700; }
+.setrow small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.setrow b { color: var(--accent); font-size: 14px; text-align: right; }
+.setrow:disabled { opacity: .45; }
+.setbox .textbtn { margin: 6px 0 4px; }
+.sched { display: grid; grid-template-columns: 40px 1fr 1fr; gap: 8px 10px; align-items: center; }
+.sched .sh { font-size: 12px; color: var(--muted); font-weight: 700; text-align: center; }
+.sched .sd { font-weight: 900; color: var(--accent); text-align: center; }
+.sched select {
+  font: inherit; font-size: 15px; font-weight: 700; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); text-align: center;
+}

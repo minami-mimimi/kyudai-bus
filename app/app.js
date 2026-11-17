@@ -33,10 +33,25 @@ const HUB = '九大学研都市駅';
 // 九州大学の授業時間（分）。1限 8:40〜10:10 … 5限 16:40〜18:10
 const PERIODS = [[1, 520, 610], [2, 630, 720], [3, 780, 870], [4, 890, 980], [5, 1000, 1090]];
 const margin = () => store.get('margin', 10);   // バス停⇔教室の余裕（分）
+const BACK_DEFAULT = '九大ビッグオレンジ';
+// 今日（または指定日）の時間割。授業がなければ null
+function todaySched(d = new Date()) {
+  const x = sched[d.getDay()];
+  return x && (x[0] || x[1]) ? [x[0] || x[1], x[1] || x[0]] : null;
+}
 const toCampusTrip = () => state.to === CAMPUS || isCampus(state.to);
 const fromCampusTrip = () => isCampus(state.from) && !toCampusTrip();
 // その便がどの授業に関係するか：行きは「◯限の何分前に着く」、帰りは「◯限が終わって何分後に出る」
 function classInfo(j) {
+  // 時間割があれば、今日の最初の授業（行き）を基準に「何分前／何分遅刻」
+  const ts = state.dir === 'go' && query().live ? todaySched() : null;
+  if (ts) {
+    const [n, st] = PERIODS[ts[0] - 1];
+    const d = st - j.arr;
+    return d >= 0
+      ? { n, text: `${n}限 ${d}分前`, long: `${n}限（${fmt(st)}〜）の${d}分前に到着`, tight: d < margin() }
+      : { n, text: `${n}限 ${-d}分遅刻`, long: `${n}限（${fmt(st)}〜）に${-d}分遅れて到着`, tight: true, late: true };
+  }
   if (toCampusTrip()) {
     const p = PERIODS.find(([, st]) => st >= j.arr);
     if (!p || p[1] - j.arr > 100) return null;
@@ -92,6 +107,9 @@ let favs = store.get('favs', []);
 let hist = store.get('hist', []);
 let stopHist = store.get('stopHist', []);
 let favStops = store.get('favStops', []);
+let commute = store.get('commute', null);   // 通学ルート {home, to, back}
+let sched = store.get('sched', {});          // 時間割 {曜日(0=日): [最初の限, 最後の限]}（0 = なし）
+let usage = store.get('usage', {});          // よく調べる区間 {'from|to': 回数}
 
 // 停車情報 [停留所, 発車(分), のりば, 到着(分・発車と違うときだけ)]
 const arrOf = (e) => e[3] ?? e[1];
@@ -301,6 +319,115 @@ window.addEventListener('popstate', () => {
 const goBack = () => history.back();
 const curScreen = () => stack[stack.length - 1];
 
+/* ================= 通学モード（開いた瞬間に今乗るべき便を出す） ================= */
+// 開いた時刻で行き／帰りを決める：時間割があれば最初の授業が始まるまでは行き、それ以降は帰り
+function autoDir(now = new Date()) {
+  if (!commute) return null;
+  const m = now.getHours() * 60 + now.getMinutes();
+  const ts = todaySched(now);
+  if (ts) return m < PERIODS[ts[0] - 1][1] ? 'go' : 'back';
+  return m < 12 * 60 ? 'go' : 'back';
+}
+function applyDir(dir) {
+  if (!commute || !dir) { state.dir = null; return; }
+  state.dir = dir;
+  state.when = null;
+  state.customOpen = false;
+  state.from = dir === 'go' ? commute.home : commute.back;
+  state.to = dir === 'go' ? commute.to : commute.home;
+  store.set('from', state.from); store.set('to', state.to);
+}
+// 手で区間を変えたら通学モードを外す（通学ルートと同じ区間なら付け直す）
+function syncDir() {
+  if (!commute) { state.dir = null; return; }
+  if (state.from === commute.home && state.to === commute.to) state.dir = 'go';
+  else if (state.from === commute.back && state.to === commute.home) state.dir = 'back';
+  else state.dir = null;
+}
+
+// ホーム上部：次の3本。タップでその便の詳細へ（結果画面を飛ばす）
+let dashList = [];
+function renderDash(q) {
+  const all = journeys(q.day, state.from, state.to);
+  const ts = todaySched(q.now);
+  let start = q.min, note = '';
+  if (state.dir === 'back' && ts) {
+    const en = PERIODS[ts[1] - 1][2] + margin();
+    if (start < en) { start = en; note = `${ts[1]}限のあと（${fmt(en)}〜）`; }
+  }
+  const list = all.filter((j) => j.dep >= start);
+  dashList = list.slice(0, 10);
+  let hint = '';
+  if (state.dir === 'go' && ts) {
+    const [n, st] = PERIODS[ts[0] - 1];
+    const ok = all.filter((j) => j.arr <= st - margin() && j.dep >= q.min);
+    const last = ok[ok.length - 1];
+    hint = last ? `${n}限に間に合う最終 <b>${fmt(last.dep)}</b>発` : `<span class="late">${n}限（${fmt(st)}〜）に間に合う便はもうありません</span>`;
+  }
+  const head = `<div class="dash-head"><span class="dirtag ${state.dir}">${state.dir === 'go' ? '行き' : '帰り'}</span>
+    <span class="dash-route">${esc(shortest(state.from))} → ${esc(shortest(state.to))}</span></div>
+    ${hint || note ? `<div class="dash-hint">${hint || note}</div>` : ''}`;
+  if (!list.length) {
+    const tmr = new Date(q.now); tmr.setDate(tmr.getDate() + 1);
+    const f = journeys(dayType(tmr), state.from, state.to)[0];
+    return `${head}<div class="dash-none">今日の便は終わりました${f ? `<br>明日の始発 <b>${fmt(f.dep)}</b>発 → ${fmt(f.arr)}着` : ''}</div>`;
+  }
+  const lastOfDay = all[all.length - 1];
+  const badges = (j) => `${j === lastOfDay ? `<span class="lastchip">${j.legs[0].train ? '終電' : '終バス'}</span>` : ''}${classBadge(j, 'classchip', false)}`;
+  const main = list[0];
+  const wait = (j) => j.dep - q.nowMin;
+  const rows = list.slice(1, 3).map((j, i) => `<button class="dash-row" data-k="${i + 1}">
+      <span class="dr-t">${fmt(j.dep)}</span><span class="dr-a">→ ${fmt(j.arr)}</span>
+      ${j.plat ? `<span class="platchip">${esc(j.plat)}</span>` : ''}${badges(j)}
+      <span class="dr-w">${after(wait(j))}</span></button>`).join('');
+  return `${head}
+    <button class="dash-main" data-k="0">
+      <span class="dm-l"><span class="dm-t">${fmt(main.dep)}<small>発</small></span>
+        <span class="dm-s">${main.plat ? `<span class="platchip">${platLabel(main.plat)}</span>` : ''}<span class="lb">${esc(main.legs.map(legName).join('→'))} </span>${fmt(main.arr)}着</span></span>
+      <span class="dm-r"><span class="dm-w">${wait(main) <= 0 ? 'まもなく' : `あと<b>${after(wait(main))}</b>`}</span>${badges(main)}</span>
+    </button>${rows}`;
+}
+
+// 行き／帰りボタン（通学ルートがあるとき）
+function renderDirSeg() {
+  const el = $('dirSeg');
+  if (!commute) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = [['go', '行き', commute.home, commute.to], ['back', '帰り', commute.back, commute.home]].map(([d, label, f, t]) =>
+    `<button class="${state.dir === d ? 'on' : ''}" data-d="${d}"><b>${label}</b><small>${esc(shortest(f))} → ${esc(shortest(t))}</small></button>`).join('');
+  el.querySelectorAll('button').forEach((b) => b.onclick = () => { applyDir(b.dataset.d); renderHome(); });
+}
+
+// 慣れてきたら：よく調べる区間を通学ルートに、シンプル表示に、をワンタップで提案
+function renderSuggest() {
+  const el = $('suggest');
+  const items = [];
+  if (!commute) {
+    const best = Object.entries(usage).map(([k, c]) => [k.split('|'), c])
+      .filter(([[f, t], c]) => c >= 2 && !isCampus(f) && (t === CAMPUS || isCampus(t)) && DATA.stops.includes(f))
+      .sort((a, b) => b[1] - a[1])[0];
+    const pair = best ? best[0] : (!isCampus(state.from) && toCampusTrip() ? [state.from, state.to] : null);
+    if (pair) items.push(`<button class="sg" data-a="commute" data-f="${esc(pair[0])}" data-t="${esc(pair[1])}">＋ 「${esc(shortest(pair[0]))} → ${esc(shortest(pair[1]))}」を通学ルートにする<small>開くだけで次の便が出るようになります</small></button>`);
+  }
+  if (store.get('launches', 0) >= 15 && !store.get('simple', false) && !store.get('simpleAsked', false)) {
+    items.push(`<button class="sg" data-a="simple">慣れてきたらシンプル表示に<small>説明の文字を減らします（その他でいつでも戻せます）</small></button><button class="sg-x" data-a="nosimple" aria-label="閉じる">×</button>`);
+  }
+  el.innerHTML = items.join('');
+  el.hidden = !items.length;
+  el.querySelectorAll('[data-a]').forEach((b) => b.onclick = () => {
+    const a = b.dataset.a;
+    if (a === 'commute') {
+      commute = { home: b.dataset.f, to: b.dataset.t, back: isCampus(b.dataset.t) ? b.dataset.t : BACK_DEFAULT };
+      store.set('commute', commute);
+      applyDir(autoDir());
+      toast('通学ルートにしました（その他で変更できます）');
+    }
+    if (a === 'simple') { store.set('simple', true); store.set('simpleAsked', true); document.body.classList.add('simple'); $('simpleSw').checked = true; }
+    if (a === 'nosimple') store.set('simpleAsked', true);
+    renderHome();
+  });
+}
+
 /* ================= ホーム ================= */
 const legName = (l) => l.train ? (l.r === '筑肥線' ? 'JR筑肥線' : '筑肥線・空港線') : rinfo(l.r).short;
 function renderHome() {
@@ -318,6 +445,23 @@ function renderHome() {
     : q.period ? `${ICON_CLOCK}<b>${q.period}限</b>${q.mode === 'arr' ? 'に間に合う' : 'の後'}`
     : `${ICON_CLOCK}<b>${fmt(q.min)}</b>${q.mode === 'dep' ? '出発' : '到着'}`;
   renderPeriods(q);
+  syncDir();
+  renderDirSeg();
+  renderSuggest();
+  const dash = state.dir && q.live;
+  $('customToggle').hidden = !(state.dir && !state.customOpen);
+  $('customBox').hidden = !!(state.dir && !state.customOpen);
+  if (dash) {
+    $('nextLine').classList.add('dash');
+  $('nextLine').onclick = null;
+    $('nextLine').innerHTML = renderDash(q);
+    $('nextLine').querySelectorAll('[data-k]').forEach((b) => b.onclick = () => {
+      state.results = dashList; openDetail(dashList[+b.dataset.k]);
+    });
+    renderQuick();
+    return;
+  }
+  $('nextLine').classList.remove('dash');
   const todays = q.live ? journeys(q.day, state.from, state.to) : [];
   const nx = todays.find((j) => j.dep >= q.min) || null;
   const first = nx && nx.legs[0];
@@ -328,12 +472,17 @@ function renderHome() {
        <div class="nx-r"><span class="lb">あと </span><b>${after(nx.dep - q.min)}</b><br>${nx.plat ? `<span class="platchip">${platLabel(nx.plat)}</span> ` : ''}<span class="lb">${esc(nx.legs.map(legName).join('→'))}・${esc(short(nx.at))} </span>${fmt(nx.arr)}着${classBadge(nx, 'classchip', true)}</div>`
     : `<div class="nx-msg">${q.live ? '本日の運行は終了しました' : `${DAY_NAMES[q.day]} ${fmt(q.min)} ${q.mode === 'dep' ? '出発' : '到着'}で検索します`}</div>`;
 
+  if (nx) {
+    $('nextLine').onclick = () => { state.results = todays.filter((j) => j.dep >= q.min).slice(0, 10); openDetail(nx); };
+  } else $('nextLine').onclick = null;
   renderQuick();
 }
 
 // よく使う区間（お気に入り→最近の検索）。タップでそのまま検索
 function renderQuick() {
-  const items = [...favs.map((x) => [...x, true]), ...hist.filter(([a, b]) => !favs.some(([c, d]) => c === a && d === b)).map((x) => [...x, false])].slice(0, 8);
+  const isCommute = ([a, b]) => commute && ((a === commute.home && b === commute.to) || (a === commute.back && b === commute.home));
+  const items = [...favs.map((x) => [...x, true]), ...hist.filter(([a, b]) => !favs.some(([c, d]) => c === a && d === b)).map((x) => [...x, false])]
+    .filter((x) => !isCommute(x)).slice(0, 8);
   $('quick').innerHTML = items.map(([f, t, fav], i) =>
     `<button class="qchip${fav ? ' fav' : ''}" data-i="${i}">${fav ? '★ ' : ''}${esc(shortest(f))}<span>→</span>${esc(shortest(t))}</button>`).join('');
   $('quick').hidden = !items.length;
@@ -345,6 +494,24 @@ const shortest = (n) => n === CAMPUS ? '伊都' : short(n).replace(/^九大(?!�
 
 // その他：お気に入りの管理と系統のオン・オフ
 function renderMore() {
+  $('cmHomeV').textContent = commute ? disp(commute.home) : '未設定';
+  $('cmToV').textContent = commute ? disp(commute.to) : '—';
+  $('cmBackV').textContent = commute ? disp(commute.back) : '—';
+  $('cmTo').disabled = $('cmBack').disabled = !commute;
+  $('cmClear').hidden = !commute;
+  const opt = (v, sel) => `<option value="${v}"${v === sel ? ' selected' : ''}>${v ? v + '限' : '—'}</option>`;
+  $('sched').innerHTML = '<div class="sh"></div><div class="sh">最初</div><div class="sh">最後</div>' + [1, 2, 3, 4, 5, 6].map((d) => {
+    const [a, b] = sched[d] || [0, 0];
+    return `<div class="sd">${WEEK[d]}</div>${[0, 1].map((k) => `<select data-d="${d}" data-k="${k}">${[0, 1, 2, 3, 4, 5].map((v) => opt(v, (sched[d] || [0, 0])[k])).join('')}</select>`).join('')}`;
+  }).join('');
+  $('sched').querySelectorAll('select').forEach((el) => el.onchange = () => {
+    const d = +el.dataset.d, k = +el.dataset.k;
+    const cur = [...(sched[d] || [0, 0])];
+    cur[k] = +el.value;
+    if (k === 0 && cur[0] && (!cur[1] || cur[1] < cur[0])) cur[1] = cur[0];
+    if (k === 1 && cur[1] && (!cur[0] || cur[0] > cur[1])) cur[0] = cur[1];
+    sched[d] = cur; store.set('sched', sched); renderMore();
+  });
   renderPairList($('favList'), favs, '便の詳細画面の ☆ で追加できます', true);
   const busRoutes = Object.entries(ROUTES).filter(([, v]) => !v.train);
   $('opts').innerHTML = busRoutes.map(([r, v]) =>
@@ -395,6 +562,8 @@ function renderPairList(ul, pairs, empty, isFav) {
 }
 
 function search() {
+  const uk = `${state.from}|${state.to}`;
+  usage[uk] = (usage[uk] || 0) + 1; store.set('usage', usage);
   hist = [[state.from, state.to], ...hist.filter(([a, b]) => !(a === state.from && b === state.to))].slice(0, 15);
   store.set('hist', hist);
   state.sort = 'all';
@@ -406,12 +575,15 @@ let searchTarget = 'from';
 function openSearch(target) {
   searchTarget = target;
   $('q').value = '';
-  $('searchTitle').textContent = target === 'from' ? '乗る停留所・駅を選ぶ' : '降りる停留所・駅を選ぶ';
+  $('searchTitle').textContent = { from: '乗る停留所・駅を選ぶ', to: '降りる停留所・駅を選ぶ', cmHome: '家の最寄りの駅・停留所を選ぶ', cmTo: '行きの行き先を選ぶ', cmBack: '帰りに乗るバス停を選ぶ' }[target];
   openOverlay($('search'));
   renderSearch();
   requestAnimationFrame(() => { $('searchBody').scrollTop = $('searchBody').scrollHeight; });
 }
 function candidates() {
+  if (searchTarget === 'cmHome') return DATA.stops.filter((s) => !isCampus(s) && reachable(s).has(CAMPUS));
+  if (searchTarget === 'cmTo') return [CAMPUS, ...DATA.stops.filter(isCampus)];
+  if (searchTarget === 'cmBack') return DATA.stops.filter(isCampus);
   if (searchTarget === 'from') return DATA.stops.filter((s) => reachable(s).size);
   return [...reachable(state.from)];
 }
@@ -455,6 +627,15 @@ function renderSearch() {
 }
 function pickStop(n) {
   if (n !== CAMPUS) { stopHist = [n, ...stopHist.filter((x) => x !== n)].slice(0, 8); store.set('stopHist', stopHist); }
+  if (searchTarget.startsWith('cm')) {
+    const key = { cmHome: 'home', cmTo: 'to', cmBack: 'back' }[searchTarget];
+    commute = { home: null, to: CAMPUS, back: BACK_DEFAULT, ...(commute || {}), [key]: n };
+    store.set('commute', commute);
+    applyDir(autoDir());
+    goBack();
+    setTimeout(render, 0);
+    return;
+  }
   if (searchTarget === 'from') state.from = n; else state.to = n;
   fixRoute();
   goBack();
@@ -746,6 +927,7 @@ async function main() {
   $('source').textContent = `データ：${DATA.source}／${ymdJa(DATA.fetchedFor)}改正ダイヤ${DATA.validUntil ? `（${ymdJa(DATA.validUntil)}まで有効）` : ''}${DATA.trainSource ? `。電車：${DATA.trainSource}` : ''}`;
   // 以前のデータの停留所名（例：周船寺（バス））を新しい名前に寄せ、見つからないものは除く
   const known = (n) => n === CAMPUS || DATA.stops.includes(n);
+  state.dir = null; state.customOpen = false;
   const fixName = (n) => known(n) ? n : known(n.replace(/（.*?）|［.*?］/g, '')) ? n.replace(/（.*?）|［.*?］/g, '') : null;
   state.from = fixName(state.from) || '九大学研都市駅';
   state.to = fixName(state.to) || CAMPUS;
@@ -762,6 +944,7 @@ async function main() {
   $('ttFrom').onclick = () => openSearch('from');
   $('ttTo').onclick = () => openSearch('to');
   $('swap').onclick = () => {
+    if (state.dir) { applyDir(state.dir === 'go' ? 'back' : 'go'); renderHome(); return; }
     const f = state.from, t = state.to;
     state.from = t === CAMPUS ? '九大ビッグオレンジ' : t;
     state.to = f;
@@ -770,6 +953,11 @@ async function main() {
   $('dayPill').onclick = openWhen;
   $('whenBtn').onclick = openWhen;
   $('goBtn').onclick = search;
+  $('customToggle').onclick = () => { state.customOpen = true; renderHome(); };
+  $('cmHome').onclick = () => openSearch('cmHome');
+  $('cmTo').onclick = () => openSearch('cmTo');
+  $('cmBack').onclick = () => openSearch('cmBack');
+  $('cmClear').onclick = () => { commute = null; store.set('commute', null); state.dir = null; renderMore(); toast('通学ルートを消しました'); };
   $('q').oninput = renderSearch;
   $('searchClose').onclick = goBack;
   document.querySelectorAll('[data-back]').forEach((b) => b.onclick = goBack);
@@ -803,10 +991,27 @@ async function main() {
     show(b.dataset.t);
   });
 
-  render();
+  // 起動：アイコン長押しのショートカット（?r=go / back / table）か、時刻で行き／帰りを自動選択
+  store.set('launches', store.get('launches', 0) + 1);
+  const r = new URLSearchParams(location.search).get('r');
+  if (r === 'go' || r === 'back') applyDir(commute ? r : null);
+  else applyDir(autoDir());
+  if (r) history.replaceState({ n: 1 }, '', location.pathname);
+  if (r === 'table') { stack = ['s-table']; show('s-table'); } else render();
   setInterval(() => { if (curScreen() === 's-home' && !overlays.length) renderHome(); }, 15000);
   setInterval(() => { if (state.when == null && curScreen() === 's-results') renderResults(); }, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+  // しばらく閉じていたら「今」に戻す（前に見た時刻・画面のまま残さない）
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 10 * 60 * 1000) {
+      while (overlays.length) overlays.pop().hidden = true;
+      stack = ['s-home'];
+      state.when = null;
+      if (commute) applyDir(autoDir());
+      show('s-home');
+    } else render();
+  });
 }
 
 if ('serviceWorker' in navigator) {

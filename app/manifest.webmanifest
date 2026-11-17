@@ -9,6 +9,11 @@
   "orientation": "portrait",
   "background_color": "#8a3fb0",
   "theme_color": "#8a3fb0",
+  "shortcuts": [
+    { "name": "行き（大学へ）", "short_name": "行き", "url": "./?r=go", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "帰り（家へ）", "short_name": "帰り", "url": "./?r=back", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "時刻表", "short_name": "時刻表", "url": "./?r=table", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

@@ -24,7 +24,11 @@
     <div class="next-card" id="nextLine"></div>
 
     <div class="thumb-zone">
+      <div class="suggest" id="suggest"></div>
       <div class="quick" id="quick"></div>
+      <div class="dirseg" id="dirSeg"></div>
+      <button class="customtoggle" id="customToggle"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>別の区間・時刻で調べる</button>
+      <div class="custom-box" id="customBox">
       <div class="od-card">
         <div class="od-rail" aria-hidden="true"><i class="dot"></i><i class="rail"></i><i class="dot fill"></i></div>
         <div class="od-rows">
@@ -42,6 +46,7 @@
         <button class="chipbtn" id="whenBtn"></button>
       </div>
       <button class="search-btn" id="goBtn"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>バスを検索</button>
+      </div>
     </div>
   </div>
 </section>
@@ -95,6 +100,18 @@
 <section class="screen" id="s-more" hidden>
   <header class="plain-head"><h1>その他</h1></header>
   <div class="more">
+    <h2>通学ルート</h2>
+    <div class="box setbox">
+      <button class="setrow" id="cmHome"><span>家の最寄り<small>行きに乗る・帰りに降りる駅や停留所</small></span><b id="cmHomeV"></b></button>
+      <button class="setrow" id="cmTo"><span>行きの行き先</span><b id="cmToV"></b></button>
+      <button class="setrow" id="cmBack"><span>帰りに乗るバス停</span><b id="cmBackV"></b></button>
+      <button class="textbtn" id="cmClear">通学ルートを消す</button>
+    </div>
+    <h2>時間割</h2>
+    <div class="box">
+      <div class="sched" id="sched"></div>
+      <p class="hint">曜日ごとに最初と最後の授業を入れると、行きは「最初の授業に間に合う最終」、帰りは「最後の授業が終わってからの便」を自動で出します。</p>
+    </div>
     <h2>お気に入りの区間</h2>
     <ul class="list" id="favList"></ul>
     <h2>表示する系統</h2>
