@@ -354,20 +354,38 @@ function renderDetail() {
   const isFav = favs.some(([a, b]) => a === state.from && b === state.to);
   const idx = state.results.indexOf(j);
   $('detail').innerHTML = `
-    <div class="d-stop"><div class="nm">${esc(DATA.stops[j.t.s[j.ai][0]])}<span class="chev">${ICON_CHEV}</span></div>
-      <button class="chip" id="chgTime">出発時刻を変更 ${ICON_CHEV}</button></div>
-    <div class="leg" style="--c:var(--r-${r.key})">
-      <div class="times"><div>${fmt(j.dep)}${j.plat ? `<span class="platbox">${esc(platLabel(j.plat))}</span>` : ''}${j.ai === 0 ? '<small>始発</small>' : ''}</div><div>${j.arrPlat ? `<span class="platbox">${esc(platLabel(j.arrPlat))}</span>` : ''}${fmt(j.arr)}</div></div>
-      <div class="bar"><span class="bus">${ICON_BUS}</span><span class="ln"></span></div>
-      <div class="info">
-        <div class="lt">昭和バス・九州大学線<br>〔${esc(j.r.replace('経由', ''))}${j.r.endsWith('経由') ? '経由' : ''}〕</div>
-        <div class="ld">${esc(short(j.dest))}行</div>
-        <div class="meta">乗車 <b>${j.arr - j.dep}分</b> ・ <b>${mids.length + 1}</b>停留所先で降りる</div>
-        ${mids.length ? `<button class="mid-toggle${state.midOpen ? ' open' : ''}" id="midT">途中の停留所（${mids.length}）${ICON_DOWN}</button>
-        <ul class="mids"${state.midOpen ? '' : ' hidden'}>${mids.map(([i, m]) => `<li><b>${esc(DATA.stops[i])}</b><span>${fmt(m)}</span></li>`).join('')}</ul>` : ''}
+    <div class="route" style="--c:var(--r-${r.key})">
+      <div class="rt-row dep">
+        <div class="rt-time">${fmt(j.dep)}<small>発</small></div>
+        <div class="rt-mk"><i class="dot"></i></div>
+        <div class="rt-body">
+          <div class="rt-lbl">乗る</div>
+          <div class="rt-name">${esc(DATA.stops[j.t.s[j.ai][0]])}</div>
+          <div class="rt-tags">${j.plat ? `<span class="platchip">${esc(platLabel(j.plat))}</span>` : ''}${j.ai === 0 ? '<span class="tagsoft">始発</span>' : ''}
+            <button class="chip" id="chgTime">出発時刻を変更 ${ICON_CHEV}</button></div>
+        </div>
+      </div>
+      <div class="rt-row leg2">
+        <div class="rt-time"></div>
+        <div class="rt-mk"></div>
+        <div class="rt-body">
+          <div class="rt-badge"><span class="bi">${ICON_BUS}</span>${esc(j.r)}</div>
+          <div class="rt-line">昭和バス 九州大学線 ・ <b>${esc(short(j.dest))}</b> 行</div>
+          <div class="rt-meta">乗車 <b>${j.arr - j.dep}分</b>　<b>${mids.length + 1}</b> 停留所先で降りる</div>
+          ${mids.length ? `<button class="mid-toggle${state.midOpen ? ' open' : ''}" id="midT">途中の停留所（${mids.length}）${ICON_DOWN}</button>` : ''}
+        </div>
+      </div>
+      ${state.midOpen ? mids.map(([i, m]) => `<div class="rt-row mid"><div class="rt-time">${fmt(m)}</div><div class="rt-mk"><i class="sdot"></i></div><div class="rt-body"><div class="rt-name">${esc(DATA.stops[i])}</div></div></div>`).join('') : ''}
+      <div class="rt-row arr">
+        <div class="rt-time">${fmt(j.arr)}<small>着</small></div>
+        <div class="rt-mk"><i class="dot"></i></div>
+        <div class="rt-body">
+          <div class="rt-lbl">降りる</div>
+          <div class="rt-name">${esc(j.at)}</div>
+          ${j.arrPlat ? `<div class="rt-tags"><span class="platchip soft">${esc(platLabel(j.arrPlat))}に到着</span></div>` : ''}
+        </div>
       </div>
     </div>
-    <div class="d-stop"><div class="nm">${esc(j.at)}<span class="chev">${ICON_CHEV}</span></div></div>
     <div class="summary">
       <div class="big">所要<b>${j.arr - j.dep}</b>分　乗換<b>0</b>回${j.fare ? `　<b>${j.fare}</b>円` : ''}</div>
       <div class="sub">${esc(short(state.from))} ${fmt(j.dep)}発 → ${esc(short(j.at))} ${fmt(j.arr)}着</div>
