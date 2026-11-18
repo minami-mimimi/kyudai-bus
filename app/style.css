@@ -705,3 +705,16 @@ body.simple .pchip small { display: none; }
   font: inherit; font-size: 15px; font-weight: 700; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line);
   background: var(--bg); color: var(--text); text-align: center;
 }
+
+/* 行き／帰りのラベルは1行で */
+.dirtag { white-space: nowrap; flex: none; }
+.dash-route { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-row.leavenow { background: var(--bg2); border-radius: 12px; border-top: none; margin-top: 6px; padding: 10px; }
+.dash-row .dr-l { font-size: 12px; font-weight: 800; color: var(--muted); }
+.dash-hint .tightline b { color: var(--short); }
+.dash-hint .tightline { color: var(--short); font-weight: 800; }
+/* 次の便の行：のりば・授業のバッジ・到着時刻を折り返さない */
+.dash-row > * { white-space: nowrap; flex: none; }
+.dash-row { flex-wrap: nowrap; overflow: hidden; }
+.dash-row .dr-w { flex: none; }
+.home-body .next-card, .thumb-zone > * { flex-shrink: 0; }

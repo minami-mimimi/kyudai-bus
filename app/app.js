@@ -46,11 +46,16 @@ function classInfo(j) {
   // 時間割があれば、今日の最初の授業（行き）を基準に「何分前／何分遅刻」
   const ts = state.dir === 'go' && query().live ? todaySched() : null;
   if (ts) {
-    const [n, st] = PERIODS[ts[0] - 1];
-    const d = st - j.arr;
-    return d >= 0
-      ? { n, text: `${n}限 ${d}分前`, long: `${n}限（${fmt(st)}〜）の${d}分前に到着`, tight: d < margin() }
-      : { n, text: `${n}限 ${-d}分遅刻`, long: `${n}限（${fmt(st)}〜）に${-d}分遅れて到着`, tight: true, late: true };
+    const range = PERIODS.slice(ts[0] - 1, ts[1]);
+    const p = range.find(([, st]) => st >= j.arr);
+    if (p) {
+      const [n, st] = p, d = st - j.arr;
+      if (d > 90) return null;  // 早すぎる便には付けない
+      return { n, text: `${n}限 ${d}分前`, long: `${n}限（${fmt(st)}〜）の${d}分前に到着`, tight: d < margin() };
+    }
+    // 最後の授業にも間に合わない：その授業への遅れを30分以内なら表示
+    const [n, st] = range[range.length - 1], d = j.arr - st;
+    return d <= 30 ? { n, text: `${n}限 ${d}分遅刻`, long: `${n}限（${fmt(st)}〜）に${d}分遅れて到着`, tight: true, late: true } : null;
   }
   if (toCampusTrip()) {
     const p = PERIODS.find(([, st]) => st >= j.arr);
@@ -321,11 +326,15 @@ const curScreen = () => stack[stack.length - 1];
 
 /* ================= 通学モード（開いた瞬間に今乗るべき便を出す） ================= */
 // 開いた時刻で行き／帰りを決める：時間割があれば最初の授業が始まるまでは行き、それ以降は帰り
+const GO_GRACE = 90;  // 最初の授業が始まってもこの分数までは「行き」（遅れて向かう日もあるため）
 function autoDir(now = new Date()) {
   if (!commute) return null;
+  // 手で行き／帰りを選んでから3時間以内（同じ日）なら、その向きを優先
+  const ov = store.get('dirPick', null);
+  if (ov && now.getTime() - ov.at < 3 * 3600 * 1000 && new Date(ov.at).getDate() === now.getDate()) return ov.dir;
   const m = now.getHours() * 60 + now.getMinutes();
   const ts = todaySched(now);
-  if (ts) return m < PERIODS[ts[0] - 1][1] ? 'go' : 'back';
+  if (ts) return m < PERIODS[ts[0] - 1][1] + GO_GRACE ? 'go' : 'back';
   return m < 12 * 60 ? 'go' : 'back';
 }
 function applyDir(dir) {
@@ -357,12 +366,18 @@ function renderDash(q) {
   }
   const list = all.filter((j) => j.dep >= start);
   dashList = list.slice(0, 10);
+  const nowFirst = start > q.min ? all.find((j) => j.dep >= q.min && j.dep < start) : null;
+  if (nowFirst) dashList.push(nowFirst);
   let hint = '';
   if (state.dir === 'go' && ts) {
-    const [n, st] = PERIODS[ts[0] - 1];
-    const ok = all.filter((j) => j.arr <= st - margin() && j.dep >= q.min);
-    const last = ok[ok.length - 1];
-    hint = last ? `${n}限に間に合う最終 <b>${fmt(last.dep)}</b>発` : `<span class="late">${n}限（${fmt(st)}〜）に間に合う便はもうありません</span>`;
+    // 時間割の中で、まだ間に合う一番早い授業
+    for (const [n, st] of PERIODS.slice(ts[0] - 1, ts[1])) {
+      const ok = all.filter((j) => j.arr <= st - margin() && j.dep >= q.min);
+      if (ok.length) { hint = `${n}限に間に合う最終 <b>${fmt(ok[ok.length - 1].dep)}</b>発`; break; }
+      const close = all.filter((j) => j.arr <= st && j.dep >= q.min);  // 余裕はないが開始には間に合う
+      if (close.length) { const c = close[close.length - 1]; hint = `<span class="tightline">${n}限ギリギリ <b>${fmt(c.dep)}</b>発（${st - c.arr}分前に着く）</span>`; break; }
+    }
+    if (!hint) hint = `<span class="late">今日の授業（〜${ts[1]}限）に間に合う便はもうありません</span>`;
   }
   const head = `<div class="dash-head"><span class="dirtag ${state.dir}">${state.dir === 'go' ? '行き' : '帰り'}</span>
     <span class="dash-route">${esc(shortest(state.from))} → ${esc(shortest(state.to))}</span></div>
@@ -385,7 +400,9 @@ function renderDash(q) {
       <span class="dm-l"><span class="dm-t">${fmt(main.dep)}<small>発</small></span>
         <span class="dm-s">${main.plat ? `<span class="platchip">${platLabel(main.plat)}</span>` : ''}<span class="lb">${esc(main.legs.map(legName).join('→'))} </span>${fmt(main.arr)}着</span></span>
       <span class="dm-r"><span class="dm-w">${wait(main) <= 0 ? 'まもなく' : `あと<b>${after(wait(main))}</b>`}</span>${badges(main)}</span>
-    </button>${rows}`;
+    </button>${rows}${nowFirst ? `<button class="dash-row leavenow" data-k="${dashList.length - 1}">
+      <span class="dr-l">今すぐ帰るなら</span><span class="dr-t">${fmt(nowFirst.dep)}</span><span class="dr-a">→ ${fmt(nowFirst.arr)}</span>
+      ${nowFirst.plat ? `<span class="platchip">${esc(nowFirst.plat)}</span>` : ''}<span class="dr-w">${after(Math.max(0, nowFirst.dep - q.nowMin))}</span></button>` : ''}`;
 }
 
 // 行き／帰りボタン（通学ルートがあるとき）
@@ -395,7 +412,10 @@ function renderDirSeg() {
   el.hidden = false;
   el.innerHTML = [['go', '行き', commute.home, commute.to], ['back', '帰り', commute.back, commute.home]].map(([d, label, f, t]) =>
     `<button class="${state.dir === d ? 'on' : ''}" data-d="${d}"><b>${label}</b><small>${esc(shortest(f))} → ${esc(shortest(t))}</small></button>`).join('');
-  el.querySelectorAll('button').forEach((b) => b.onclick = () => { applyDir(b.dataset.d); renderHome(); });
+  el.querySelectorAll('button').forEach((b) => b.onclick = () => {
+    store.set('dirPick', { dir: b.dataset.d, at: Date.now() });
+    applyDir(b.dataset.d); renderHome();
+  });
 }
 
 // 慣れてきたら：よく調べる区間を通学ルートに、シンプル表示に、をワンタップで提案
@@ -944,7 +964,11 @@ async function main() {
   $('ttFrom').onclick = () => openSearch('from');
   $('ttTo').onclick = () => openSearch('to');
   $('swap').onclick = () => {
-    if (state.dir) { applyDir(state.dir === 'go' ? 'back' : 'go'); renderHome(); return; }
+    if (state.dir) {
+      const d = state.dir === 'go' ? 'back' : 'go';
+      store.set('dirPick', { dir: d, at: Date.now() });
+      applyDir(d); renderHome(); return;
+    }
     const f = state.from, t = state.to;
     state.from = t === CAMPUS ? '九大ビッグオレンジ' : t;
     state.to = f;
