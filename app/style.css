@@ -635,7 +635,6 @@ body.simple .pchip small { display: none; }
 .next-card.dash { display: block; padding: 14px 14px 10px; cursor: default; }
 .dash-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
 .dirtag { font-size: 12px; font-weight: 900; color: #fff; background: var(--accent); border-radius: 6px; padding: 3px 9px; }
-.dirtag.back { background: var(--r-sus); }
 .dash-route { font-size: 14px; font-weight: 800; }
 .dash-hint { font-size: 13px; color: var(--muted); margin: 6px 4px 0; }
 .dash-hint b { color: var(--accent); font-size: 15px; }

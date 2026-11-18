@@ -379,7 +379,7 @@ function renderDash(q) {
     }
     if (!hint) hint = `<span class="late">今日の授業（〜${ts[1]}限）に間に合う便はもうありません</span>`;
   }
-  const head = `<div class="dash-head"><span class="dirtag ${state.dir}">${state.dir === 'go' ? '行き' : '帰り'}</span>
+  const head = `<div class="dash-head"><span class="dirtag dir-${state.dir}">${state.dir === 'go' ? '行き' : '帰り'}</span>
     <span class="dash-route">${esc(shortest(state.from))} → ${esc(shortest(state.to))}</span></div>
     ${hint || note ? `<div class="dash-hint">${hint || note}</div>` : ''}`;
   if (!list.length) {
